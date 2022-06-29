@@ -1,0 +1,12 @@
+.DS_Store
+.eslintignore
+.eslintrc.json
+.nvmrc
+.prettierrc.json
+.vscode
+buildtsconfig.json
+coverage
+jest.config.ts
+src
+test
+tsconfig.json
