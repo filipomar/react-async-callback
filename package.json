@@ -1,6 +1,6 @@
 {
     "name": "react-async-callback",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "A small react helper snippet to handle async callbacks and turn their output into values hooked to the react life-cycle",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",

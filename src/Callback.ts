@@ -14,19 +14,19 @@ const initial = new Promise<never>(() => {});
  * @returns tupple with synchronous promise of the callback or a null value (if there has not been a call) and the memoized synchronous callback
  * @see {SyncPromise}
  */
-export const useAsyncCallback = <P extends unknown[], T, E = unknown>(
-    asyncCallback: (...args: P) => Promise<T>,
+export const useAsyncCallback = <Result, Error = unknown, Params extends unknown[] = never[]>(
+    asyncCallback: (...args: Params) => Promise<Result>,
     dep: ReadonlyArray<unknown> = [],
-): [result: SyncPromise<T, E> | null, execute: (...args: P) => void] => {
+): [result: SyncPromise<Result, Error> | null, execute: (...args: Params) => void] => {
     /** Async promise with the actual promise result */
-    const [asyncPromise, setAsyncPromise] = useState<Promise<T>>(initial);
+    const [asyncPromise, setAsyncPromise] = useState<Promise<Result>>(initial);
     /** The async promise turned synchronous */
-    const syncPromise = usePromise<T, E>(asyncPromise);
+    const syncPromise = usePromise<Result, Error>(asyncPromise);
     /** The semaphor property to make sure the callback will not be executed before it is done */
     const isLoading = asyncPromise !== initial && isPending(syncPromise);
 
     const callback = useCallback(
-        (...args: P) => {
+        (...args: Params) => {
             if (isLoading) {
                 /** Is still running */
                 return;
