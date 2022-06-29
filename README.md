@@ -1,8 +1,12 @@
 # react-async-callback
 
-A small react helper snippet to handle async callbacks and turn their output into values hooked to the react life-cycle.
+A small react helper snippet to handle async callbacks and turn their output into values hooked to the react life-cycle
 
-:warning: Relies on `react-sync-promise`
+:warning: Relies on `react-sync-promise` internally.
+
+## Installation
+
+`npm install react-async-callback` and there you go, nothing more needed
 
 ## Usage
 
