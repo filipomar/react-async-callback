@@ -1,6 +1,6 @@
 {
     "name": "react-async-callback",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "A small react helper snippet to handle async callbacks and turn their output into values hooked to the react life-cycle",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
@@ -66,6 +66,6 @@
         "react": ">=16.14.0"
     },
     "dependencies": {
-        "react-sync-promise": "^1.0.5"
+        "react-sync-promise": "^1.0.6"
     }
 }
