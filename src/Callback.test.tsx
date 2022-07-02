@@ -47,29 +47,38 @@ describe(useAsyncCallback, () => {
         expect(onRender).toBeCalledTimes(1);
         expect(onRender).nthCalledWith(1, [null, null, null]);
 
+        /** Click on the first one */
         fireEvent.click(firstButton);
 
-        /** Now first is loading */
+        /** The first is loading */
         expect(onRender).toBeCalledTimes(2);
         expect(onRender).nthCalledWith(2, [{ state: SyncPromiseState.PENDING }, null, null]);
 
         await delay(0);
 
-        /** And first has loaded */
-        expect(onRender).toBeCalledTimes(3);
-        expect(onRender).nthCalledWith(3, [{ state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' }, null, null]);
+        /**
+             * Now first is loaded
+             * There are 4 and not 3 calls because there is an update chain
+             * First the async promise gets updated (+1 render)
+             * That update is noticed and the sync promise is updated (+1 render)
+             * And then the promise yields (+1 render)
+             */
+        expect(onRender).toBeCalledTimes(4);
+        expect(onRender).nthCalledWith(3, [{ state: SyncPromiseState.PENDING }, null, null]);
+        expect(onRender).nthCalledWith(4, [{ state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' }, null, null]);
 
         fireEvent.click(secondButton);
 
         /** Now second is loading */
-        expect(onRender).toBeCalledTimes(4);
-        expect(onRender).nthCalledWith(4, [{ state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' }, { state: SyncPromiseState.PENDING }, null]);
+        expect(onRender).toBeCalledTimes(5);
+        expect(onRender).nthCalledWith(5, [{ state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' }, { state: SyncPromiseState.PENDING }, null]);
 
         await delay(50);
 
-        /** And first has loaded with an error */
-        expect(onRender).toBeCalledTimes(5);
-        expect(onRender).nthCalledWith(5, [
+        /** And second has loaded with an error */
+        expect(onRender).toBeCalledTimes(7);
+        expect(onRender).nthCalledWith(6, [{ state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' }, { state: SyncPromiseState.PENDING }, null]);
+        expect(onRender).nthCalledWith(7, [
             { state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' },
             { state: SyncPromiseState.REJECTED, value: new Error('General kenobi') },
             null,
@@ -77,9 +86,16 @@ describe(useAsyncCallback, () => {
 
         fireEvent.click(thirdButton);
 
+        await delay(1);
+
         /** Now third is loading */
-        expect(onRender).toBeCalledTimes(6);
-        expect(onRender).nthCalledWith(6, [
+        expect(onRender).toBeCalledTimes(9);
+        expect(onRender).nthCalledWith(8, [
+            { state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' },
+            { state: SyncPromiseState.REJECTED, value: new Error('General kenobi') },
+            { state: SyncPromiseState.PENDING },
+        ]);
+        expect(onRender).nthCalledWith(9, [
             { state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' },
             { state: SyncPromiseState.REJECTED, value: new Error('General kenobi') },
             { state: SyncPromiseState.PENDING },
@@ -90,14 +106,14 @@ describe(useAsyncCallback, () => {
         /** Click again */
         fireEvent.click(thirdButton);
 
-        /** No extra render was made as promise change was canceled */
-        expect(onRender).toBeCalledTimes(6);
+        /** Only pending promise reset re-render was made as promise change was canceled */
+        expect(onRender).toBeCalledTimes(9);
 
         await delay(100);
 
         /** Now third has loaded */
-        expect(onRender).toBeCalledTimes(7);
-        expect(onRender).nthCalledWith(7, [
+        expect(onRender).toBeCalledTimes(10);
+        expect(onRender).nthCalledWith(10, [
             { state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' },
             { state: SyncPromiseState.REJECTED, value: new Error('General kenobi') },
             { state: SyncPromiseState.RESOLVED, value: "You're a bold one" },
