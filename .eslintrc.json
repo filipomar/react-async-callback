@@ -26,6 +26,7 @@
         "object-curly-newline": ["error", { "ObjectPattern": { "multiline": true }, "ExportDeclaration": { "multiline": true } }],
         "react/function-component-definition": "off",
         "react/jsx-filename-extension": ["error", { "extensions": [".tsx"] }],
-        "react/jsx-indent": ["error", 4]
+        "react/jsx-indent": ["error", 4],
+        "react/jsx-indent-props": ["error", 4]
     }
 }

@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, ReactNode } from 'react';
 import { fireEvent, render, act, findByTestId } from '@testing-library/react';
 import { SyncPromise, SyncPromiseState } from 'react-sync-promise';
 
@@ -10,34 +10,41 @@ const delay = async (milliseconds: number): Promise<void> => new Promise((resolv
     setTimeout(() => resolve(), milliseconds);
 });
 
-const Helper: FC<Readonly<{ onRender: (syncPromises: PromisesArray) => void }>> = ({ onRender }) => {
-    /** Resolves right away */
-    const [firstPromise, firstCallback] = useAsyncCallback(() => Promise.resolve('HELLO THERE'));
+const Helper: FC<Readonly<{ onRender: (syncPromises: PromisesArray) => void; config: { testid: string; callback: () => Promise<string> }[] }>> = ({ config, onRender }) => {
+    const promises: PromisesArray = [];
+    const buttons: ReactNode[] = [];
 
-    /** Rejects right away */
-    const [secondPromise, secondCallback] = useAsyncCallback(() => delay(50).then(() => {
-        throw new Error('General kenobi');
-    }));
+    config.forEach(({ testid, callback }) => {
+        const [promise, syncCallback] = useAsyncCallback(callback);
+        promises.push(promise);
+        buttons.push(<button key={testid} type="button" aria-label="testing-button" data-testid={testid} onClick={syncCallback} />);
+    });
 
-    /** Takes some time to resolve */
-    const [thirdPromise, thirdCallback] = useAsyncCallback(() => delay(200).then<string>(() => "You're a bold one"));
+    onRender(promises);
 
-    onRender([firstPromise, secondPromise, thirdPromise]);
-
-    return (
-        <>
-            <button type="button" aria-label="testing-button" data-testid="first-button" onClick={firstCallback} />
-            <button type="button" aria-label="testing-button" data-testid="second-button" onClick={secondCallback} />
-            <button type="button" aria-label="testing-button" data-testid="third-button" onClick={thirdCallback} />
-        </>
-    );
+    // eslint-disable-next-line react/jsx-no-useless-fragment
+    return <>{buttons}</>;
 };
 
 describe(useAsyncCallback, () => {
     it('turns asynchronous callback into synchronous callback', () => act(async () => {
         const onRender = jest.fn<void, [PromisesArray]>();
 
-        const { container } = render(<Helper onRender={onRender} />);
+        const { container, unmount } = render(
+            <Helper
+                onRender={onRender}
+                config={[
+                    { testid: 'first-button', callback: () => Promise.resolve('HELLO THERE') },
+                    {
+                        testid: 'second-button',
+                        callback: () => delay(50).then(() => {
+                            throw new Error('General kenobi');
+                        }),
+                    },
+                    { testid: 'third-button', callback: () => delay(200).then<string>(() => "You're a bold one") },
+                ]}
+            />,
+        );
 
         const firstButton = await findByTestId(container, 'first-button');
         const secondButton = await findByTestId(container, 'second-button');
@@ -56,15 +63,9 @@ describe(useAsyncCallback, () => {
 
         await delay(0);
 
-        /**
-             * Now first is loaded
-             * There are 4 and not 3 calls because there is an update chain
-             * First the async promise gets updated (+1 render)
-             * That update is noticed and the sync promise is updated (+1 render)
-             * And then the promise yields (+1 render)
-             */
+        /** Now response has rendered, and due to callback, another render is executed */
         expect(onRender).toBeCalledTimes(4);
-        expect(onRender).nthCalledWith(3, [{ state: SyncPromiseState.PENDING }, null, null]);
+        expect(onRender).nthCalledWith(3, [{ state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' }, null, null]);
         expect(onRender).nthCalledWith(4, [{ state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' }, null, null]);
 
         fireEvent.click(secondButton);
@@ -76,9 +77,8 @@ describe(useAsyncCallback, () => {
         await delay(50);
 
         /** And second has loaded with an error */
-        expect(onRender).toBeCalledTimes(7);
-        expect(onRender).nthCalledWith(6, [{ state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' }, { state: SyncPromiseState.PENDING }, null]);
-        expect(onRender).nthCalledWith(7, [
+        expect(onRender).toBeCalledTimes(6);
+        expect(onRender).nthCalledWith(6, [
             { state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' },
             { state: SyncPromiseState.REJECTED, value: new Error('General kenobi') },
             null,
@@ -89,34 +89,69 @@ describe(useAsyncCallback, () => {
         await delay(1);
 
         /** Now third is loading */
-        expect(onRender).toBeCalledTimes(9);
-        expect(onRender).nthCalledWith(8, [
-            { state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' },
-            { state: SyncPromiseState.REJECTED, value: new Error('General kenobi') },
-            { state: SyncPromiseState.PENDING },
-        ]);
-        expect(onRender).nthCalledWith(9, [
+        expect(onRender).toBeCalledTimes(7);
+        expect(onRender).nthCalledWith(7, [
             { state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' },
             { state: SyncPromiseState.REJECTED, value: new Error('General kenobi') },
             { state: SyncPromiseState.PENDING },
         ]);
 
         await delay(100);
+
+        /** Promise has yet to yield */
+        expect(onRender).toBeCalledTimes(7);
 
         /** Click again */
         fireEvent.click(thirdButton);
 
-        /** Only pending promise reset re-render was made as promise change was canceled */
-        expect(onRender).toBeCalledTimes(9);
+        await delay(1);
+
+        /** No further changes occured as second call was ignored */
+        expect(onRender).toBeCalledTimes(7);
 
         await delay(100);
 
         /** Now third has loaded */
-        expect(onRender).toBeCalledTimes(10);
-        expect(onRender).nthCalledWith(10, [
+        expect(onRender).toBeCalledTimes(8);
+        expect(onRender).nthCalledWith(8, [
             { state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' },
             { state: SyncPromiseState.REJECTED, value: new Error('General kenobi') },
             { state: SyncPromiseState.RESOLVED, value: "You're a bold one" },
         ]);
+
+        unmount();
+    }));
+
+    it('properly handles sequential calls', () => act(async () => {
+        const onRender = jest.fn<void, [PromisesArray]>();
+
+        const { container, unmount } = render(<Helper onRender={onRender} config={[{ testid: 'first-button', callback: () => delay(10).then(() => 'HELLO THERE') }]} />);
+
+        const firstButton = await findByTestId(container, 'first-button');
+
+        /** Call with initial the value was made */
+        expect(onRender).toBeCalledTimes(1);
+        expect(onRender).nthCalledWith(1, [null]);
+
+        /** Make 2 sequential calls */
+        fireEvent.click(firstButton);
+        await delay(20);
+
+        fireEvent.click(firstButton);
+        await delay(20);
+
+        expect(onRender).toBeCalledTimes(6);
+        // Loading
+        expect(onRender).nthCalledWith(2, [{ state: SyncPromiseState.PENDING }]);
+        // Loaded
+        expect(onRender).nthCalledWith(3, [{ state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' }]);
+        // Loading caused another re-render due to the callback
+        expect(onRender).nthCalledWith(4, [{ state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' }]);
+        // Set back to pending because of the second click
+        expect(onRender).nthCalledWith(5, [{ state: SyncPromiseState.PENDING }]);
+        // Loaded again
+        expect(onRender).nthCalledWith(6, [{ state: SyncPromiseState.RESOLVED, value: 'HELLO THERE' }]);
+
+        unmount();
     }));
 });
